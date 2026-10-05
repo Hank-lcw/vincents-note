@@ -1,0 +1,244 @@
+---
+/**
+ * 3D 蒙地卡羅市場路徑圖（自動慢速 360° 水平旋轉）
+ * 用法：<MonteCarlo3D />，可傳入 title、mu、vol、years 調整預設值
+ * 需要套件：three（npm install three）
+ */
+interface Props {
+  title?: string;
+  mu?: number;     // 預期年化報酬（%）
+  vol?: number;    // 年化波動度（%）
+  years?: number;  // 投資年數
+  paths?: number;  // 路徑數
+}
+const { title = '同樣的報酬率，可能走出很不一樣的路', mu = 7, vol = 16, years = 30, paths = 40 } = Astro.props;
+const uid = 'mc-' + Math.random().toString(36).slice(2, 8);
+---
+<figure class="mc" id={uid} data-mu={mu} data-vol={vol} data-years={years} data-paths={paths}>
+  <figcaption class="mc-head">
+    <h2 class="mc-title">{title}</h2>
+    <p class="mc-sub">{paths} 條模擬路徑沿時間展開，最終資產越高，顏色越深；橘色為中位數路徑。</p>
+  </figcaption>
+
+  <div class="mc-controls">
+    <label class="mc-ctl"><span>預期年化報酬</span><input type="range" data-k="mu" min="2" max="12" step="0.5" value={mu}><output data-o="mu">{mu}%</output></label>
+    <label class="mc-ctl"><span>年化波動度</span><input type="range" data-k="vol" min="5" max="30" step="1" value={vol}><output data-o="vol">{vol}%</output></label>
+    <label class="mc-ctl"><span>投資年數</span><input type="range" data-k="years" min="5" max="40" step="1" value={years}><output data-o="years">{years} 年</output></label>
+  </div>
+
+  <div class="mc-stats">
+    <div><span>最差 10% 的路徑</span><b data-s="p10">–</b></div>
+    <div><span>中位數路徑</span><b data-s="p50">–</b></div>
+    <div><span>最好 10% 的路徑</span><b data-s="p90">–</b></div>
+  </div>
+
+  <div class="mc-stage" role="img" aria-label="可旋轉的 3D 圖：橫軸為年數，縱軸為資產（對數尺度），深度為多條模擬路徑。">
+    <p class="mc-loading">圖表載入中…</p>
+  </div>
+
+  <div class="mc-actions">
+    <button type="button" class="mc-btn" data-a="spin" aria-pressed="true">暫停旋轉</button>
+    <button type="button" class="mc-btn" data-a="reseed">重新模擬</button>
+    <span class="mc-hint">拖曳可旋轉・滾輪可縮放</span>
+  </div>
+  <p class="mc-note">起始資產為 100，縱軸為對數尺度。以幾何布朗運動逐月模擬，非真實市場數據，不構成投資建議。</p>
+</figure>
+
+<style>
+  .mc { margin: 40px 0; padding: 24px; background: #FFFFFF; border: 1px solid #D9DCD6; border-radius: 12px; }
+  .mc-head { margin-bottom: 16px; }
+  .mc-title { margin: 0 0 4px; font-family: 'Noto Serif TC', 'Songti TC', serif; font-size: 22px; line-height: 1.4; color: #16191D; }
+  .mc-sub { margin: 0; font-size: 15px; color: #4A5159; line-height: 1.7; }
+  .mc-controls { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+  .mc-ctl { display: flex; align-items: center; gap: 12px; min-height: 40px; font-size: 14px; color: #4A5159; }
+  .mc-ctl span { flex: none; width: 96px; }
+  .mc-ctl input { flex: 1; min-width: 0; accent-color: #1F4E79; height: 28px; }
+  .mc-ctl output { flex: none; width: 52px; text-align: right; font-weight: 700; color: #16191D; font-variant-numeric: tabular-nums; }
+  .mc-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .mc-stats div { background: #F4F5F2; border-radius: 8px; padding: 10px 14px; }
+  .mc-stats span { display: block; font-size: 13px; color: #4A5159; }
+  .mc-stats b { display: block; font-size: 22px; font-weight: 700; color: #16191D; font-variant-numeric: tabular-nums; }
+  .mc-stage { position: relative; height: 420px; border-radius: 10px; background: #F4F5F2; overflow: hidden; touch-action: none; cursor: grab; }
+  .mc-stage:active { cursor: grabbing; }
+  .mc-stage canvas { display: block; width: 100%; height: 100%; }
+  .mc-loading { position: absolute; inset: 0; margin: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #4A5159; }
+  .mc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+  .mc-btn { min-height: 44px; padding: 0 18px; border: 1px solid #B9BEB6; border-radius: 8px; background: #FFFFFF; color: #16191D; font: inherit; font-size: 15px; cursor: pointer; }
+  .mc-btn:hover { border-color: #1F4E79; color: #1F4E79; }
+  .mc-hint { margin-left: auto; font-size: 13px; color: #4A5159; }
+  .mc-note { margin: 10px 0 0; font-size: 13px; color: #4A5159; line-height: 1.6; }
+  @media (max-width: 760px) {
+    .mc { padding: 18px; margin: 32px 0; }
+    .mc-title { font-size: 19px; }
+    .mc-stats { grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .mc-stats div { padding: 8px 10px; }
+    .mc-stats b { font-size: 17px; }
+    .mc-stats span { font-size: 12px; }
+    .mc-stage { height: 320px; }
+    .mc-hint { margin-left: 0; flex-basis: 100%; }
+  }
+</style>
+
+<script>
+  const ROTATION_SECONDS = 60;   // 自動旋轉一圈所需秒數（數字越大越慢）
+  const RESUME_AFTER_MS = 3000;  // 使用者拖曳後，多久恢復自動旋轉
+
+  async function init(fig: HTMLElement) {
+    const THREE = await import('three');
+    const stage = fig.querySelector<HTMLElement>('.mc-stage')!;
+    const N = Number(fig.dataset.paths) || 40;
+    const W = 12, H = 6, D = 8;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    stage.querySelector('.mc-loading')?.remove();
+    stage.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const cam = new THREE.PerspectiveCamera(40, 1, 0.1, 200);
+    const root = new THREE.Group();
+    scene.add(root);
+
+    const line = (a: number[], b: number[], m: any) =>
+      new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]), m);
+
+    const frame = new THREE.Group();
+    const gridM = new THREE.LineBasicMaterial({ color: 0xD9DCD6 });
+    const axisM = new THREE.LineBasicMaterial({ color: 0x9AA1A9 });
+    for (let i = 0; i <= 6; i++) { const x = -W / 2 + (i * W) / 6; frame.add(line([x, 0, -D / 2], [x, 0, D / 2], gridM)); }
+    for (let i = 0; i <= 4; i++) { const z = -D / 2 + (i * D) / 4; frame.add(line([-W / 2, 0, z], [W / 2, 0, z], gridM)); }
+    for (let i = 0; i <= 4; i++) { const y = (i * H) / 4; frame.add(line([-W / 2, y, -D / 2], [W / 2, y, -D / 2], gridM)); }
+    frame.add(line([-W / 2, 0, D / 2], [W / 2, 0, D / 2], axisM));
+    frame.add(line([-W / 2, 0, -D / 2], [-W / 2, H, -D / 2], axisM));
+    frame.position.y = -H / 2;
+    root.add(frame);
+
+    let data = new THREE.Group();
+    root.add(data);
+
+    let seed = 7;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    const gauss = () => { let u = 0, v = 0; while (!u) u = rnd(); while (!v) v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+    const lo = new THREE.Color('#B9CBDD'), hi = new THREE.Color('#1F4E79'), med = new THREE.Color('#D9480F');
+    const fmt = (v: number) => Math.round(v).toLocaleString('zh-TW');
+    const val = (k: string) => Number(fig.querySelector<HTMLInputElement>(`input[data-k="${k}"]`)!.value);
+    const setText = (sel: string, t: string) => { const el = fig.querySelector(sel); if (el) el.textContent = t; };
+
+    function build() {
+      const mu = val('mu') / 100, s = val('vol') / 100, yrs = val('years');
+      setText('[data-o="mu"]', `${val('mu')}%`);
+      setText('[data-o="vol"]', `${val('vol')}%`);
+      setText('[data-o="years"]', `${yrs} 年`);
+
+      const steps = yrs * 12, dt = 1 / 12;
+      const paths: number[][] = [];
+      for (let p = 0; p < N; p++) {
+        let v = 100; const a = [v];
+        for (let t = 0; t < steps; t++) { v *= Math.exp((mu - (s * s) / 2) * dt + s * Math.sqrt(dt) * gauss()); a.push(v); }
+        paths.push(a);
+      }
+      const order = paths.map((a, i) => [a[steps], i]).sort((x, y) => x[0] - y[0]);
+      const q = (f: number) => order[Math.min(N - 1, Math.floor(f * (N - 1)))][0];
+      setText('[data-s="p10"]', fmt(q(0.1)));
+      setText('[data-s="p50"]', fmt(q(0.5)));
+      setText('[data-s="p90"]', fmt(q(0.9)));
+
+      let mn = Infinity, mx = -Infinity;
+      paths.forEach((a) => a.forEach((v) => { const l = Math.log10(v); if (l < mn) mn = l; if (l > mx) mx = l; }));
+      mn = Math.min(mn, 2);
+
+      root.remove(data);
+      data.traverse((o: any) => { o.geometry?.dispose(); o.material?.dispose(); });
+      data = new THREE.Group();
+      const medIdx = order[Math.floor(N / 2)][1];
+
+      order.forEach(([, i], r) => {
+        const a = paths[i], z = -D / 2 + (r / (N - 1)) * D;
+        const pts = a.map((v, t) => new THREE.Vector3(-W / 2 + (t / steps) * W, ((Math.log10(v) - mn) / (mx - mn)) * H, z));
+        const isMed = i === medIdx;
+        const c = isMed ? med : lo.clone().lerp(hi, r / (N - 1));
+        data.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: c, transparent: !isMed, opacity: isMed ? 1 : 0.85 })));
+        if (isMed) {
+          const curve = new THREE.CatmullRomCurve3(pts.filter((_, k) => k % 3 === 0 || k === pts.length - 1));
+          data.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 200, 0.045, 6, false), new THREE.MeshBasicMaterial({ color: med })));
+        }
+        const end = new THREE.Mesh(new THREE.SphereGeometry(isMed ? 0.11 : 0.06, 10, 10), new THREE.MeshBasicMaterial({ color: c }));
+        end.position.copy(pts[pts.length - 1]);
+        data.add(end);
+      });
+      data.position.y = -H / 2;
+      root.add(data);
+    }
+
+    // 相機與旋轉
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let rx = 0.42, ry = -0.65, dist = window.innerWidth < 760 ? 22 : 19;
+    let spinning = !reduce, dragging = false, px = 0, py = 0, resumeTimer = 0, visible = true, last = performance.now();
+    const spinBtn = fig.querySelector<HTMLButtonElement>('[data-a="spin"]')!;
+    const syncBtn = () => { spinBtn.textContent = spinning ? '暫停旋轉' : '自動旋轉'; spinBtn.setAttribute('aria-pressed', String(spinning)); };
+    syncBtn();
+    let userWantsSpin = spinning;
+
+    spinBtn.addEventListener('click', () => { userWantsSpin = !spinning; spinning = userWantsSpin; clearTimeout(resumeTimer); syncBtn(); });
+    fig.querySelector('[data-a="reseed"]')!.addEventListener('click', () => { seed = Math.floor(Math.random() * 1e6) + 1; build(); });
+    fig.querySelectorAll<HTMLInputElement>('input[data-k]').forEach((el) => el.addEventListener('input', () => { seed = 7; build(); }));
+
+    stage.addEventListener('pointerdown', (e) => {
+      dragging = true; spinning = false; clearTimeout(resumeTimer);
+      px = e.clientX; py = e.clientY; stage.setPointerCapture(e.pointerId);
+    });
+    stage.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      ry -= (e.clientX - px) * 0.008;
+      rx = Math.max(0.05, Math.min(1.35, rx + (e.clientY - py) * 0.006));
+      px = e.clientX; py = e.clientY;
+    });
+    const endDrag = () => {
+      if (!dragging) return;
+      dragging = false;
+      if (userWantsSpin) resumeTimer = window.setTimeout(() => { spinning = true; syncBtn(); }, RESUME_AFTER_MS);
+      syncBtn();
+    };
+    stage.addEventListener('pointerup', endDrag);
+    stage.addEventListener('pointercancel', endDrag);
+    stage.addEventListener('wheel', (e) => { e.preventDefault(); dist = Math.max(10, Math.min(32, dist + e.deltaY * 0.01)); }, { passive: false });
+
+    const resize = () => {
+      const w = stage.clientWidth, h = stage.clientHeight;
+      renderer.setSize(w, h, false);
+      cam.aspect = w / h; cam.updateProjectionMatrix();
+    };
+    new ResizeObserver(resize).observe(stage);
+    resize();
+
+    new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }).observe(stage);
+
+    function loop(now: number) {
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      if (visible && !document.hidden) {
+        if (spinning) ry -= (2 * Math.PI / ROTATION_SECONDS) * dt;
+        cam.position.set(dist * Math.sin(ry) * Math.cos(rx), dist * Math.sin(rx), dist * Math.cos(ry) * Math.cos(rx));
+        cam.lookAt(0, 0, 0);
+        renderer.render(scene, cam);
+      }
+      requestAnimationFrame(loop);
+    }
+
+    build();
+    requestAnimationFrame(loop);
+  }
+
+  // 圖表捲動到附近才載入 three.js，避免拖慢首頁
+  const io = new IntersectionObserver((entries, obs) => {
+    entries.forEach((e) => {
+      if (!e.isIntersecting) return;
+      obs.unobserve(e.target);
+      init(e.target as HTMLElement).catch(() => {
+        const s = (e.target as HTMLElement).querySelector('.mc-loading');
+        if (s) s.textContent = '圖表無法載入，請重新整理頁面。';
+      });
+    });
+  }, { rootMargin: '300px' });
+  document.querySelectorAll<HTMLElement>('.mc').forEach((el) => io.observe(el));
+</script>
