@@ -22,3 +22,9 @@ export function readingMinutes(body = '') {
   const words = (text.replace(/[\u3400-\u9fff\uf900-\ufaff]/g, ' ').match(/[A-Za-z0-9]+/g) || []).length;
   return Math.max(1, Math.round(cjk / 400 + words / 200));
 }
+
+/** Add display-only spacing at Chinese/Latin or Chinese/digit boundaries. */
+export function spaceMixedText(text: string) {
+  return text.replace(/([\p{Script=Han}])([A-Za-z0-9])/gu, '$1 $2')
+    .replace(/([A-Za-z0-9])([\p{Script=Han}])/gu, '$1 $2');
+}

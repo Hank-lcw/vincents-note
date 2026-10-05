@@ -1,7 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Base from '../../layouts/Base.astro';
-import GradeBadge from '../../components/GradeBadge.astro';
+import MiniPyramid from '../../components/MiniPyramid.astro';
 import { GRADES, formatDate, readingMinutes } from '../../lib';
 
 export async function getStaticPaths() {
@@ -29,7 +29,7 @@ const chevron = '<path d="M6 9l6 6 6-6"></path>';
       <nav class="crumbs" aria-label="麵包屑"><a href="/">首頁</a> / {data.topic}</nav>
       <h1>{data.title}</h1>
       <div class="article-meta">
-        <span class="grade-pill"><GradeBadge grade={data.grade} size="sm" />{GRADES[data.grade].label}</span>
+        <a class="grade-pill" href={`/?tier=${data.grade}#notes`}><MiniPyramid grade={data.grade} /><span><span class="tier-letter">{data.grade}</span> 層・{GRADES[data.grade].label}</span></a>
         <time class="date" datetime={data.date.toISOString()}>{formatDate(data.date)}</time>
         <span>閱讀 {readingMinutes(note.body)} 分鐘</span>
         {data.references.length > 0 && <span>引用 {data.references.length} 篇研究</span>}
@@ -44,7 +44,7 @@ const chevron = '<path d="M6 9l6 6 6-6"></path>';
 
       {data.summary.length > 0 && (
         <section class="tldr" aria-labelledby="tldr">
-          <h2 id="tldr">重點摘要</h2>
+          <h2 id="tldr"><MiniPyramid grade={data.grade} />重點摘要</h2>
           <ul>{data.summary.map((s) => <li>{s}</li>)}</ul>
         </section>
       )}

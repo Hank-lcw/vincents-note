@@ -1,123 +1,157 @@
 ---
 import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
-import GradeBadge from '../components/GradeBadge.astro';
 import site from '../data/site.json';
-import { GRADES, TOPIC_INFO, formatDate, readingMinutes } from '../lib';
-
+import { GRADES, TOPIC_INFO, spaceMixedText } from '../lib';
 const notes = (await getCollection('notes', ({ data }) => !data.draft))
   .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
-const latestHref = notes[0] ? `/notes/${notes[0].id}/` : '#notes';
-
-const icons = [
-  '<path d="M21 12a9 9 0 1 1-9-9v9z"></path><path d="M14 2.5A9 9 0 0 1 21.5 10H14z"></path>',
-  '<path d="M4 4h12l4 4v12H4z"></path><path d="M8 12h8M8 16h5M8 8h4"></path>',
-  '<path d="M3 21h18"></path><path d="M5 21V11l7-6 7 6v10"></path><path d="M10 21v-5h4v5"></path>',
-];
+const tiers = ['A', 'B', 'C'] as const;
+const groups = tiers.map(tier => ({ tier, notes: notes.filter(n => n.data.grade === tier) }));
+const aboutLines = site.about.split(/\r?\n/);
+const divider = aboutLines.findIndex(line => /^-+$/.test(line.trim()));
+const credentials = divider >= 0 ? aboutLines.slice(0, divider).filter(line => line.trim()) : [];
+const philosophy = divider >= 0 ? aboutLines.slice(divider + 1).filter(line => line.trim()).join(' ') : '';
+const username = site.buttondownUsername?.trim();
 ---
 <Base>
-  <section class="wrap hero">
-    <div class="hero-main">
-      <p class="eyebrow">EVIDENCE-BASED INVESTING NOTES</p>
-      <h1>{site.heroTitle}</h1>
-      <p class="hero-intro">{site.heroIntro}</p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href={latestHref}>開始閱讀</a>
-        <a class="btn btn-outline" href="#grades">什麼是證據等級？</a>
-      </div>
+  <section id="pyramid" class="wrap hero">
+    <div class="hero-copy">
+      <h1>{spaceMixedText(site.heroTitle)}</h1>
+      <p class="hero-lead">{site.heroLead || '醫學用證據金字塔判斷一項治療有多可靠。這裡用同樣的方式看投資：越上層，結論越站得住腳。'}</p>
     </div>
-
-    <aside id="grades" class="panel grades" aria-labelledby="grades-title">
-      <h2 id="grades-title">證據等級</h2>
-      <p>每篇筆記標示結論背後的證據強度。</p>
-      <ul class="grade-list">
-        {(['A', 'B', 'C'] as const).map((g) => (
-          <li>
-            <GradeBadge grade={g} />
-            <div><strong>{GRADES[g].label}</strong><span class="desc">{GRADES[g].desc}</span></div>
-          </li>
-        ))}
-      </ul>
-    </aside>
-  </section>
-
-  <section id="topics" class="band">
-    <div class="wrap section">
-      <h2 class="section-title">三個主題</h2>
-      <div class="topic-grid">
-        {TOPIC_INFO.map((t, i) => (
-          <a class="topic-card" href="#notes" data-topic-link={t.name}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={icons[i]}></svg>
-            <h3>{t.name}</h3>
-            <p>{t.desc}</p>
-          </a>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  <section id="notes" class="wrap section">
-    <div class="notes-head">
-      <h2 class="section-title">最新筆記</h2>
-      <div class="chips" role="group" aria-label="依主題篩選">
-        <button type="button" class="chip" data-filter="all" aria-pressed="true">全部</button>
-        {TOPIC_INFO.map((t) => (
-          <button type="button" class="chip" data-filter={t.name} aria-pressed="false">{t.short}</button>
-        ))}
-      </div>
-    </div>
-
-    <div class="note-list">
-      {notes.map((n) => (
-        <article class="note-row" data-topic={n.data.topic}>
-          <GradeBadge grade={n.data.grade} size="lg" />
-          <div class="note-body">
-            <p class="note-topic">{n.data.topic}</p>
-            <h3><a href={`/notes/${n.id}/`}>{n.data.title}</a></h3>
-            <p class="note-excerpt">{n.data.excerpt}</p>
-          </div>
-          <div class="note-meta">
-            <time datetime={n.data.date.toISOString()}>{formatDate(n.data.date)}</time>
-            <div>閱讀 {readingMinutes(n.body)} 分鐘</div>
-          </div>
-        </article>
+    <div class="pyramid" role="group" aria-label="依證據層級篩選筆記">
+      {groups.map(({ tier, notes: group }) => (
+        <button type="button" class={`pyramid-row tier-${tier}`} data-tier={tier} aria-pressed="false" aria-label={`${tier} 層：${GRADES[tier].label}，${group.length ? `${group.length} 篇筆記` : '尚無筆記'}`} disabled={!group.length}>
+          <span class="pyramid-slot">
+            <span class="tier-shape"><span class="tier-letter">{tier}</span></span>
+            {!group.length && <svg class="empty-outline" viewBox={`0 0 300 ${tier === 'A' ? 96 : 72}`} preserveAspectRatio="none" aria-hidden="true"><path d={tier === 'A' ? 'M150 0L207.143 96H92.857Z' : tier === 'B' ? 'M89.286 0H210.714L253.571 72H46.429Z' : 'M42.857 0H257.143L300 72H0Z'} /></svg>}
+          </span>
+          <span class="tier-description"><strong>{GRADES[tier].label}</strong><span>{group.length ? `${group.length} 篇筆記` : '尚無筆記'}</span></span>
+        </button>
       ))}
+      <p class="pyramid-hint">點選任一層，看該等級的筆記</p>
     </div>
-    <p class="empty" hidden={notes.length > 0} data-empty>這個主題還沒有筆記。</p>
+    <p class="hero-intro">{site.heroIntro}</p>
+  </section>
+
+  <section id="notes" class="band">
+    <div class="wrap section">
+      <div class="notes-head">
+        <h2>投資筆記</h2>
+        <div class="chips" role="group" aria-label="依主題篩選">
+          <button type="button" class="chip" data-filter="all" aria-pressed="true">全部</button>
+          {TOPIC_INFO.map(t => <button type="button" class="chip" data-filter={t.name} aria-pressed="false">{t.short}</button>)}
+        </div>
+      </div>
+      <p class="sr-only" data-filter-status role="status" aria-live="polite"></p>
+      {groups.map(({ tier, notes: group }) => (
+        <section class={`note-group group-${tier}`} data-group={tier} aria-labelledby={`group-${tier}`}>
+          <h3 id={`group-${tier}`} class="group-title"><span class="tier-letter">{tier}</span> 層・{GRADES[tier].label}</h3>
+          <div class={tier === 'A' ? 'note-grid' : 'note-list'}>
+            {group.map(n => <article class="note-row" data-topic={n.data.topic} data-grade={tier}>
+              {tier === 'A' ? <>
+                <p class="note-topic">{n.data.topic}</p>
+                <h4><a href={`/notes/${n.id}/`}>{n.data.title}</a></h4>
+                <p class="note-excerpt">{n.data.excerpt}</p>
+              </> : <>
+                <span class="tier-letter list-letter" aria-hidden="true">{tier}</span>
+                <h4><a href={`/notes/${n.id}/`}>{n.data.title}</a></h4>
+              </>}
+            </article>)}
+          </div>
+          {!group.length && <p class="group-empty">尚無筆記</p>}
+        </section>
+      ))}
+      <div class="empty" data-empty hidden>
+        <p>這個條件下還沒有筆記</p>
+        <button class="btn btn-primary" type="button" data-reset>顯示全部</button>
+      </div>
+    </div>
   </section>
 
   <section id="about" class="wrap duo">
     <div class="panel about">
-      <h2>關於 Vincent</h2>
-      <p>{site.about}</p>
+      <h2>關於文森醫師</h2>
+      {divider >= 0 ? <>
+        <p class="about-name">{credentials[0]}</p>
+        {credentials.slice(1).map(line => <p class="credential">{line}</p>)}
+        <hr />
+        <p>{philosophy}</p>
+      </> : <p class="about-original">{site.about}</p>}
     </div>
     <div class="newsletter">
       <h2>訂閱筆記更新</h2>
       <p>新筆記發布時寄給你，不推薦個股、不賣課程。</p>
-      {site.newsletterUrl ? (
-        <a class="btn" href={site.newsletterUrl} target="_blank" rel="noopener" style="background:#fff;color:var(--ink)">前往訂閱</a>
-      ) : (
-        <p style="margin:0;font-size:15px">訂閱功能即將開放。</p>
-      )}
+      {username ? <>
+        <form action={`https://buttondown.com/api/emails/embed-subscribe/${encodeURIComponent(username)}`} method="post" target="_blank">
+          <input type="hidden" name="embed" value="1" />
+          <label for="newsletter-email">電子郵件</label>
+          <div class="subscribe-fields">
+            <input id="newsletter-email" type="email" name="email" required autocomplete="email" placeholder="you@example.com" />
+            <button type="submit" class="btn">訂閱</button>
+          </div>
+        </form>
+        <p class="subscribe-hint">送出後會開新分頁，請到信箱點確認信完成訂閱。</p>
+      </> : site.newsletterUrl ? <a class="btn" href={site.newsletterUrl} target="_blank" rel="noopener">前往訂閱</a> : <p>訂閱功能即將開放</p>}
     </div>
   </section>
-
-  <script>
-    const chips = document.querySelectorAll<HTMLButtonElement>('.chip');
-    const rows = document.querySelectorAll<HTMLElement>('.note-row');
-    const empty = document.querySelector<HTMLElement>('[data-empty]');
-    function apply(topic: string) {
-      chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.filter === topic)));
-      let shown = 0;
-      rows.forEach((r) => {
-        const show = topic === 'all' || r.dataset.topic === topic;
-        r.hidden = !show;
-        if (show) shown++;
-      });
-      if (empty) empty.hidden = shown > 0;
-    }
-    chips.forEach((c) => c.addEventListener('click', () => apply(c.dataset.filter!)));
-    document.querySelectorAll<HTMLElement>('[data-topic-link]').forEach((a) =>
-      a.addEventListener('click', () => apply(a.dataset.topicLink!)));
-  </script>
 </Base>
+
+<script>
+  const tierButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-tier]')];
+  const chips = [...document.querySelectorAll<HTMLButtonElement>('[data-filter]')];
+  const rows = [...document.querySelectorAll<HTMLElement>('[data-grade]')];
+  const groups = [...document.querySelectorAll<HTMLElement>('[data-group]')];
+  const empty = document.querySelector<HTMLElement>('[data-empty]');
+  const status = document.querySelector<HTMLElement>('[data-filter-status]');
+  let tier = 'all';
+  let topic = 'all';
+  function restore() {
+    const hash = new URLSearchParams(location.hash.split('?')[1] || '');
+    const query = new URLSearchParams(location.search);
+    const requestedTier = hash.get('tier') ?? query.get('tier') ?? 'all';
+    tier = ['A', 'B', 'C'].includes(requestedTier) ? requestedTier : 'all';
+    const requestedTopic = hash.get('topic') ?? query.get('topic') ?? 'all';
+    topic = chips.some(c => c.dataset.filter === requestedTopic) ? requestedTopic : 'all';
+    apply(false);
+    if (location.hash.startsWith('#notes?')) document.getElementById('notes')?.scrollIntoView({ behavior: 'instant' });
+  }
+  function apply(sync = true) {
+    tierButtons.forEach(b => {
+      b.setAttribute('aria-pressed', String(b.dataset.tier === tier));
+      b.classList.toggle('dimmed', tier !== 'all' && b.dataset.tier !== tier);
+    });
+    chips.forEach(c => c.setAttribute('aria-pressed', String(c.dataset.filter === topic)));
+    let count = 0;
+    rows.forEach(row => {
+      row.hidden = !((tier === 'all' || row.dataset.grade === tier) && (topic === 'all' || row.dataset.topic === topic));
+      if (!row.hidden) count++;
+    });
+    groups.forEach(group => {
+      const hasVisible = [...group.querySelectorAll<HTMLElement>('[data-grade]')].some(row => !row.hidden);
+      group.hidden = !hasVisible;
+    });
+    if (empty) empty.hidden = count > 0;
+    if (status) status.textContent = `目前顯示 ${count} 篇筆記`;
+    if (sync) {
+      const params = new URLSearchParams();
+      if (tier !== 'all') params.set('tier', tier);
+      if (topic !== 'all') params.set('topic', topic);
+      const url = new URL(location.href);
+      url.searchParams.delete('tier');
+      url.searchParams.delete('topic');
+      url.hash = `notes${params.size ? `?${params}` : ''}`;
+      history.pushState(null, '', url);
+    }
+  }
+  tierButtons.forEach(b => b.addEventListener('click', () => {
+    tier = tier === b.dataset.tier ? 'all' : b.dataset.tier!;
+    apply();
+    document.getElementById('notes')?.scrollIntoView({ behavior: 'instant' });
+  }));
+  chips.forEach(c => c.addEventListener('click', () => { topic = c.dataset.filter!; apply(); }));
+  document.querySelector('[data-reset]')?.addEventListener('click', () => { tier = 'all'; topic = 'all'; apply(); });
+  window.addEventListener('hashchange', restore);
+  window.addEventListener('popstate', restore);
+  restore();
+</script>

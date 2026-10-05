@@ -1,6 +1,9 @@
 ---
 import '../styles/global.css';
 import Logo from '../components/Logo.astro';
+import site from '../data/site.json';
+const gaId = /^G-[A-Z0-9]+$/.test(site.gaId ?? '') ? site.gaId : '';
+const home = Astro.url.pathname === '/' ? '' : '/';
 interface Props { title?: string; description?: string }
 const { title, description = '用研究說話的投資理財筆記：指數投資、資產配置、退休規劃與學術研究解讀。' } = Astro.props;
 const fullTitle = title ? `${title}｜Vincent's note` : "Vincent's note｜實證投資理財筆記";
@@ -18,9 +21,19 @@ const fullTitle = title ? `${title}｜Vincent's note` : "Vincent's note｜實證
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+  {gaId && <>
+    <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}></script>
+    <script is:inline define:vars={{ gaId }}>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){ window.dataLayer.push(arguments); }
+      gtag('js', new Date());
+      gtag('config', gaId);
+    </script>
+  </>}
 </head>
 <body>
+  <a class="skip-link" href="#main">跳到主要內容</a>
   <header class="site-header">
     <div class="wrap">
       <Logo />
@@ -28,26 +41,28 @@ const fullTitle = title ? `${title}｜Vincent's note` : "Vincent's note｜實證
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
       </button>
       <nav id="site-nav" class="nav" aria-label="主選單">
-        <a href="/#notes">筆記</a>
-        <a href="/#topics">主題</a>
-        <a href="/#grades">證據等級</a>
-        <a href="/#about">關於 Vincent</a>
+        <a href={`${home}#notes`}>筆記</a>
+        <a href={`${home}#pyramid`}>證據金字塔</a>
+        <a href={`${home}#notes`}>主題</a>
+        <a href={`${home}#about`}>關於</a>
       </nav>
     </div>
   </header>
 
-  <main>
+  <main id="main">
     <slot />
   </main>
 
   <footer class="site-footer">
     <div class="wrap">
       <p>免責聲明：本站內容為個人學習筆記與研究整理，不構成任何投資建議。投資有風險，過去績效不代表未來表現。</p>
+      {gaId && <p>本站使用 Google Analytics 統計匿名瀏覽數據，以改善內容。</p>}
       <p>© {new Date().getFullYear()} Vincent's note</p>
     </div>
   </footer>
 
   <script>
+    document.documentElement.classList.add('js');
     const btn = document.querySelector('.menu-btn');
     const nav = document.getElementById('site-nav');
     btn?.addEventListener('click', () => {
@@ -58,6 +73,7 @@ const fullTitle = title ? `${title}｜Vincent's note` : "Vincent's note｜實證
     nav?.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => {
       nav.classList.remove('open');
       btn?.setAttribute('aria-expanded', 'false');
+      btn?.setAttribute('aria-label', '開啟選單');
     }));
   </script>
 </body>
