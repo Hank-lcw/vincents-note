@@ -83,3 +83,6 @@ collections:
           - { name: heroIntro, label: 首頁介紹文字, widget: text }
           - { name: about, label: 關於 Vincent, widget: text, hint: "換行會照樣顯示" }
           - { name: newsletterUrl, label: 訂閱連結, widget: string, required: false, hint: "電子報服務的訂閱頁網址；留空則顯示「訂閱功能即將開放」" }
+          - { name: heroLead, label: 首頁主引言, widget: text, required: false }
+          - { name: gaId, label: Google Analytics 評估 ID, widget: string, required: false, hint: "格式為 G- 開頭", pattern: ['^$|^G-[A-Z0-9]+$', "請輸入 G- 開頭的評估 ID，或留空"] }
+          - { name: buttondownUsername, label: Buttondown 使用者名稱, widget: string, required: false }

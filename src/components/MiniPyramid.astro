@@ -1,0 +1,12 @@
+---
+interface Props { grade: 'A' | 'B' | 'C' }
+const { grade } = Astro.props;
+const layers = [
+  { grade: 'A', path: 'M12 2L15 8H9Z' },
+  { grade: 'B', path: 'M8.5 9H15.5L18 14H6Z' },
+  { grade: 'C', path: 'M5.5 15H18.5L22 22H2Z' },
+];
+---
+<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" class="mini-pyramid">
+  {layers.map((layer) => <path d={layer.path} fill={layer.grade === grade ? `var(--tier-${layer.grade.toLowerCase()})` : 'none'} stroke={layer.grade === grade ? `var(--tier-${layer.grade.toLowerCase()})` : '#B9C4D0'} stroke-width="1" stroke-linejoin="round" />)}
+</svg>
