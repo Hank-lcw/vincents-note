@@ -1,0 +1,6 @@
+---
+import { GRADES } from '../lib';
+interface Props { grade: 'A' | 'B' | 'C'; size?: 'sm' | 'md' | 'lg' }
+const { grade, size = 'md' } = Astro.props;
+---
+<span class:list={['badge', `badge-${grade}`, size !== 'md' && `badge-${size}`]} aria-label={`證據等級 ${grade}：${GRADES[grade].label}`}>{grade}</span>

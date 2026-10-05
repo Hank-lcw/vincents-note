@@ -1,0 +1,123 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import GradeBadge from '../components/GradeBadge.astro';
+import site from '../data/site.json';
+import { GRADES, TOPIC_INFO, formatDate, readingMinutes } from '../lib';
+
+const notes = (await getCollection('notes', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const latestHref = notes[0] ? `/notes/${notes[0].id}/` : '#notes';
+
+const icons = [
+  '<path d="M21 12a9 9 0 1 1-9-9v9z"></path><path d="M14 2.5A9 9 0 0 1 21.5 10H14z"></path>',
+  '<path d="M4 4h12l4 4v12H4z"></path><path d="M8 12h8M8 16h5M8 8h4"></path>',
+  '<path d="M3 21h18"></path><path d="M5 21V11l7-6 7 6v10"></path><path d="M10 21v-5h4v5"></path>',
+];
+---
+<Base>
+  <section class="wrap hero">
+    <div class="hero-main">
+      <p class="eyebrow">EVIDENCE-BASED INVESTING NOTES</p>
+      <h1>{site.heroTitle}</h1>
+      <p class="hero-intro">{site.heroIntro}</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href={latestHref}>開始閱讀</a>
+        <a class="btn btn-outline" href="#grades">什麼是證據等級？</a>
+      </div>
+    </div>
+
+    <aside id="grades" class="panel grades" aria-labelledby="grades-title">
+      <h2 id="grades-title">證據等級</h2>
+      <p>每篇筆記標示結論背後的證據強度。</p>
+      <ul class="grade-list">
+        {(['A', 'B', 'C'] as const).map((g) => (
+          <li>
+            <GradeBadge grade={g} />
+            <div><strong>{GRADES[g].label}</strong><span class="desc">{GRADES[g].desc}</span></div>
+          </li>
+        ))}
+      </ul>
+    </aside>
+  </section>
+
+  <section id="topics" class="band">
+    <div class="wrap section">
+      <h2 class="section-title">三個主題</h2>
+      <div class="topic-grid">
+        {TOPIC_INFO.map((t, i) => (
+          <a class="topic-card" href="#notes" data-topic-link={t.name}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={icons[i]}></svg>
+            <h3>{t.name}</h3>
+            <p>{t.desc}</p>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section id="notes" class="wrap section">
+    <div class="notes-head">
+      <h2 class="section-title">最新筆記</h2>
+      <div class="chips" role="group" aria-label="依主題篩選">
+        <button type="button" class="chip" data-filter="all" aria-pressed="true">全部</button>
+        {TOPIC_INFO.map((t) => (
+          <button type="button" class="chip" data-filter={t.name} aria-pressed="false">{t.short}</button>
+        ))}
+      </div>
+    </div>
+
+    <div class="note-list">
+      {notes.map((n) => (
+        <article class="note-row" data-topic={n.data.topic}>
+          <GradeBadge grade={n.data.grade} size="lg" />
+          <div class="note-body">
+            <p class="note-topic">{n.data.topic}</p>
+            <h3><a href={`/notes/${n.id}/`}>{n.data.title}</a></h3>
+            <p class="note-excerpt">{n.data.excerpt}</p>
+          </div>
+          <div class="note-meta">
+            <time datetime={n.data.date.toISOString()}>{formatDate(n.data.date)}</time>
+            <div>閱讀 {readingMinutes(n.body)} 分鐘</div>
+          </div>
+        </article>
+      ))}
+    </div>
+    <p class="empty" hidden={notes.length > 0} data-empty>這個主題還沒有筆記。</p>
+  </section>
+
+  <section id="about" class="wrap duo">
+    <div class="panel about">
+      <h2>關於 Vincent</h2>
+      <p>{site.about}</p>
+    </div>
+    <div class="newsletter">
+      <h2>訂閱筆記更新</h2>
+      <p>新筆記發布時寄給你，不推薦個股、不賣課程。</p>
+      {site.newsletterUrl ? (
+        <a class="btn" href={site.newsletterUrl} target="_blank" rel="noopener" style="background:#fff;color:var(--ink)">前往訂閱</a>
+      ) : (
+        <p style="margin:0;font-size:15px">訂閱功能即將開放。</p>
+      )}
+    </div>
+  </section>
+
+  <script>
+    const chips = document.querySelectorAll<HTMLButtonElement>('.chip');
+    const rows = document.querySelectorAll<HTMLElement>('.note-row');
+    const empty = document.querySelector<HTMLElement>('[data-empty]');
+    function apply(topic: string) {
+      chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.filter === topic)));
+      let shown = 0;
+      rows.forEach((r) => {
+        const show = topic === 'all' || r.dataset.topic === topic;
+        r.hidden = !show;
+        if (show) shown++;
+      });
+      if (empty) empty.hidden = shown > 0;
+    }
+    chips.forEach((c) => c.addEventListener('click', () => apply(c.dataset.filter!)));
+    document.querySelectorAll<HTMLElement>('[data-topic-link]').forEach((a) =>
+      a.addEventListener('click', () => apply(a.dataset.topicLink!)));
+  </script>
+</Base>

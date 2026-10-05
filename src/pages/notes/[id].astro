@@ -1,0 +1,87 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import GradeBadge from '../../components/GradeBadge.astro';
+import { GRADES, formatDate, readingMinutes } from '../../lib';
+
+export async function getStaticPaths() {
+  const notes = (await getCollection('notes', ({ data }) => !data.draft))
+    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+  return notes.map((note, i) => ({
+    params: { id: note.id },
+    props: { note, related: notes.find((n, j) => j !== i && n.data.topic === note.data.topic) ?? notes[i + 1] ?? notes[i - 1] },
+  }));
+}
+
+const { note, related } = Astro.props;
+const { data } = note;
+const headings = (note.rendered?.metadata?.headings ?? []).filter((h: { depth: number }) => h.depth === 2);
+// 內文中的 [1]、[2] 自動連到參考文獻
+const html = (note.rendered?.html ?? '').replace(/\[(\d{1,2})\](?![^<]*<\/a>)(?![\(:])/g, (m: string, n: string) =>
+  Number(n) <= data.references.length ? `<a class="cite" href="#ref-${n}" aria-label="參考文獻 ${n}">[${n}]</a>` : m);
+const tocLinks = [...headings.map((h: { slug: string; text: string }) => ({ href: `#${h.slug}`, text: h.text })),
+  ...(data.references.length ? [{ href: '#refs', text: '參考文獻' }] : [])];
+const chevron = '<path d="M6 9l6 6 6-6"></path>';
+---
+<Base title={data.title} description={data.excerpt}>
+  <div class="wrap article-layout">
+    <article class="article">
+      <nav class="crumbs" aria-label="麵包屑"><a href="/">首頁</a> / {data.topic}</nav>
+      <h1>{data.title}</h1>
+      <div class="article-meta">
+        <span class="grade-pill"><GradeBadge grade={data.grade} size="sm" />{GRADES[data.grade].label}</span>
+        <time class="date" datetime={data.date.toISOString()}>{formatDate(data.date)}</time>
+        <span>閱讀 {readingMinutes(note.body)} 分鐘</span>
+        {data.references.length > 0 && <span>引用 {data.references.length} 篇研究</span>}
+      </div>
+
+      {tocLinks.length > 1 && (
+        <details class="toc mobile-only">
+          <summary>本文目錄<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={chevron}></svg></summary>
+          <nav aria-label="本文目錄">{tocLinks.map((l) => <a href={l.href}>{l.text}</a>)}</nav>
+        </details>
+      )}
+
+      {data.summary.length > 0 && (
+        <section class="tldr" aria-labelledby="tldr">
+          <h2 id="tldr">重點摘要</h2>
+          <ul>{data.summary.map((s) => <li>{s}</li>)}</ul>
+        </section>
+      )}
+
+      <div class="prose" set:html={html} />
+
+      {data.references.length > 0 && (
+        <section id="refs" class="refs" aria-labelledby="refs-title">
+          <h2 id="refs-title">參考文獻</h2>
+          <ol>{data.references.map((r, i) => <li id={`ref-${i + 1}`}>{r}</li>)}</ol>
+        </section>
+      )}
+
+      {related && (
+        <a class="related mobile-only" href={`/notes/${related.id}/`}>
+          <p>延伸閱讀</p>
+          <span style="color:#fff;font-weight:700">{related.data.title}</span>
+        </a>
+      )}
+
+      <p class="disclaimer">本文為個人學習筆記，不構成投資建議。過去績效不代表未來表現。</p>
+      <a class="back-top" href="#">回到頂部</a>
+    </article>
+
+    <aside class="aside" aria-label="側欄">
+      {tocLinks.length > 1 && (
+        <details class="toc" open>
+          <summary>目錄<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={chevron}></svg></summary>
+          <nav aria-label="本文目錄">{tocLinks.map((l) => <a href={l.href}>{l.text}</a>)}</nav>
+        </details>
+      )}
+      {related && (
+        <div class="related">
+          <p>延伸閱讀</p>
+          <a href={`/notes/${related.id}/`}>{related.data.title}</a>
+        </div>
+      )}
+    </aside>
+  </div>
+</Base>
