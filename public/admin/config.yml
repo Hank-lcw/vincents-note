@@ -4,7 +4,7 @@
 # ─────────────────────────────────────────────
 backend:
   name: github
-  repo: YOUR-GITHUB-NAME/vincents-note
+  repo: vincentlin/vincents-note
   branch: main
   commit_messages:
     create: "新增筆記：{{slug}}"
