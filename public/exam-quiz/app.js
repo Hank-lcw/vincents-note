@@ -44,8 +44,20 @@ let answers = loadSavedAnswers();
 let state = {view:"home",scope:"pgy",subject:null,year:null,questions:[],index:0,selected:null,demo:false,error:null,wrongFilter:"all"};
 let demoAnswers = {};
 let wrongBook = loadWrongBook();
-let demoWrongBook = {};
+let demoWrongBook = loadDemoWrongBook();
 
+function loadDemoWrongBook(){
+  try {
+    const value=JSON.parse(localStorage.getItem("vincent-study-demo-wrongbook-v1") || "{}");
+    return value && typeof value==="object" && !Array.isArray(value) ? value : {};
+  } catch (_) {return {};}
+}
+function persistDemoWrongBook(){
+  try {
+    localStorage.setItem("vincent-study-demo-wrongbook-v1",JSON.stringify(demoWrongBook));
+    return true;
+  } catch (_) { return false; }
+}
 function loadWrongBook(){
   try {
     const data=JSON.parse(localStorage.getItem("vincent-study-wrongbook-v1") || "{}");
@@ -74,6 +86,7 @@ function collectWrong(q,selected){
     record.demo=true;
     record.note=demoWrongBook[q.id]?.note || "";
     demoWrongBook[q.id]=record;
+    persistDemoWrongBook();
   } else {
     record.note=wrongBook[q.id]?.note || "";
     wrongBook[q.id]=record;
@@ -92,11 +105,12 @@ function sampleWrongBook(){
     source:null,images:[],selected:1,at:new Date().toISOString(),
     note:demoWrongBook[q.id]?.note || "",demo:true
   };
+  persistDemoWrongBook();
   openWrongBook();
 }
 function saveWrongNote(item,value){
   item.note=value;
-  return item.demo ? true : persistWrongBook();
+  return item.demo ? persistDemoWrongBook() : persistWrongBook();
 }
 
 function loadSavedAnswers(){
@@ -387,10 +401,10 @@ function renderWrongBook(){
       textarea.rows=3;
       textarea.placeholder="例如：診斷關鍵、容易混淆的選項、考前必背重點…";
       textarea.value=item.note||"";
-      const saveStatus=el("div","note-status",item.demo?"操作示範 · 筆記不會永久保存":"輸入後自動儲存 · 僅此瀏覽器");
+      const saveStatus=el("div","note-status",item.demo?"示範筆記 · 自動儲存在此瀏覽器":"輸入後自動儲存 · 僅此瀏覽器");
       textarea.addEventListener("input",()=>{
         saveStatus.textContent=saveWrongNote(item,textarea.value)
-          ? (item.demo?"示範筆記已更新 · 關閉頁面後不保留":"已自動儲存")
+          ? (item.demo?"示範筆記已自動儲存":"已自動儲存")
           : "儲存失敗：瀏覽器空間不足或儲存遭封鎖";
       });
       add(card,noteLabel,textarea,saveStatus);
