@@ -112,13 +112,13 @@ function renderHome(){
     add(top,el("span","subject-symbol",s.short),el("span","arrow","↗"));
     const bottom=el("div");
     add(bottom,el("strong","",s.label),el("small","",totalFor(s.id)>0?totalFor(s.id)+" 題已匯入":"題庫待匯入"));
-    add(b,top,bottom,grid);
+    add(b,top,bottom);add(grid,b);
   });
   add(page,grid);
   const note=el("div","empty-strip");
   const left=el("div");
   add(left,el("strong","","題庫正在建置"),el("p","","目前尚未匯入 103–112 年真實題目。可以先體驗兩道明確標記的示範題，確認操作符合你的習慣。"));
-  add(note,left,button("體驗作答 →","soft-button",openDemo),page);
+  add(note,left,button("體驗作答 →","soft-button",openDemo));add(page,note);
   setPage(page);
 }
 function renderYears(){
@@ -131,7 +131,7 @@ function renderYears(){
     const n=countFor(s.id,y);
     const b=el("button","year-card"+(n?" available":""));
     b.type="button";b.addEventListener("click",()=>openYear(y));
-    add(b,el("strong","",y+" 年"),el("small","",n?n+" 題":"尚未匯入"),grid);
+    add(b,el("strong","",y+" 年"),el("small","",n?n+" 題":"尚未匯入"));add(grid,b);
   });
   add(page,grid);setPage(page);
 }
@@ -212,7 +212,7 @@ function renderQuiz(){
     el("span","",(state.index+1)+" / "+state.questions.length+" 題"));
   add(page,prog);
   const bar=el("div","progress-track");
-  const fill=el("div","progress-fill");fill.style.width=((state.index+1)/state.questions.length*100)+"%";add(bar,fill,page);
+  const fill=el("div","progress-fill");fill.style.width=((state.index+1)/state.questions.length*100)+"%";add(bar,fill);add(page,bar);
   const card=el("article","question-card");
   let details=state.demo?"操作示範 · 非真實國考題":
     String(q.year)+" 年"+(q.session?" · 第 "+q.session+" 次":"")+(q.paper?" · "+q.paper:"")+(q.number?" · 第 "+q.number+" 題":"");
@@ -255,7 +255,7 @@ function renderQuiz(){
   }else{
     add(right,button(state.index===state.questions.length-1?"完成練習":"下一題 →","primary",nextQuestion));
   }
-  add(actions,right,page);setPage(page);
+  add(actions,right);add(page,actions);setPage(page);
 }
 function renderSummary(){
   const qs=state.questions;
@@ -270,7 +270,7 @@ function renderSummary(){
   const buttons=el("div","summary-buttons");
   add(buttons,button("返回專科","secondary",goHome),
     button("再看一遍","primary",()=>{state.index=0;state.selected=null;state.view="quiz";render();window.scrollTo(0,0);}));
-  add(box,buttons,page);setPage(page);
+  add(box,buttons);add(page,box);setPage(page);
 }
 function render(){
   if(state.view==="home")renderHome();
