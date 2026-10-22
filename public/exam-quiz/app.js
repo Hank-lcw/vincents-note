@@ -41,8 +41,63 @@ const DEMO = [
 const root = document.getElementById("app");
 let manifest = {counts:{}};
 let answers = loadSavedAnswers();
-let state = {view:"home",scope:"pgy",subject:null,year:null,questions:[],index:0,selected:null,demo:false,error:null};
+let state = {view:"home",scope:"pgy",subject:null,year:null,questions:[],index:0,selected:null,demo:false,error:null,wrongFilter:"all"};
 let demoAnswers = {};
+let wrongBook = loadWrongBook();
+let demoWrongBook = {};
+
+function loadWrongBook(){
+  try {
+    const data=JSON.parse(localStorage.getItem("vincent-study-wrongbook-v1") || "{}");
+    return data && typeof data==="object" && !Array.isArray(data) ? data : {};
+  } catch (_) { return {}; }
+}
+function persistWrongBook(){
+  try {
+    localStorage.setItem("vincent-study-wrongbook-v1",JSON.stringify(wrongBook));
+    return true;
+  } catch (_) { return false; }
+}
+function allWrongItems(){
+  return [...Object.values(wrongBook),...Object.values(demoWrongBook)]
+    .filter(item=>item && typeof item.id==="string" && typeof item.stem==="string")
+    .sort((a,b)=>String(b.at||"").localeCompare(String(a.at||"")));
+}
+function collectWrong(q,selected){
+  const record={
+    id:q.id,specialty:q.specialty,year:q.year||null,session:q.session||null,
+    paper:q.paper||"",number:q.number||null,stem:q.stem,options:q.options,answer:q.answer,
+    explanation:q.explanation||"",source:q.source||null,images:q.images||[],
+    selected,at:new Date().toISOString(),note:""
+  };
+  if(state.demo){
+    record.demo=true;
+    record.note=demoWrongBook[q.id]?.note || "";
+    demoWrongBook[q.id]=record;
+  } else {
+    record.note=wrongBook[q.id]?.note || "";
+    wrongBook[q.id]=record;
+    persistWrongBook();
+  }
+}
+function openWrongBook(){
+  state.view="wrongbook";state.wrongFilter="all";
+  render();window.scrollTo(0,0);
+}
+function sampleWrongBook(){
+  const q=normalizeQuestion(DEMO[0]);
+  demoWrongBook[q.id]={
+    id:q.id,specialty:q.specialty,year:null,session:null,paper:"",number:1,
+    stem:q.stem,options:q.options,answer:q.answer,explanation:q.explanation,
+    source:null,images:[],selected:1,at:new Date().toISOString(),
+    note:demoWrongBook[q.id]?.note || "",demo:true
+  };
+  openWrongBook();
+}
+function saveWrongNote(item,value){
+  item.note=value;
+  return item.demo ? true : persistWrongBook();
+}
 
 function loadSavedAnswers(){
   try {
@@ -95,7 +150,10 @@ function breadcrumbs(parts){
 }
 function renderHome(){
   const page=el("div");
-  add(page,hero("MEDICAL BOARD EXAM","用最簡單的方式，練熟每一道考古題。","先選專科，再選 103–112 年的題目。每題作答後才會顯示正確答案與詳解。"));
+  const head=hero("MEDICAL BOARD EXAM","用最簡單的方式，練熟每一道考古題。","先選專科，再選 103–112 年的題目。每題作答後才會顯示正確答案與詳解。");
+  const wrongCount=allWrongItems().length;
+  add(head,button("錯題本"+(wrongCount?" · "+wrongCount:"")+" →","soft-button",openWrongBook));
+  add(page,head);
   const section=el("div","section-top");
   add(section,el("h2","","選擇專科"));
   const switcher=el("div","segment");
@@ -191,6 +249,7 @@ function submitAnswer(){
   const rec={selected:state.selected,correct:state.selected===q.answer,at:new Date().toISOString()};
   if(state.demo)demoAnswers[q.id]=rec;
   else {answers[q.id]=rec;persistAnswers();}
+  if(!rec.correct)collectWrong(q,state.selected);
   state.selected=null;render();
 }
 function nextQuestion(){
@@ -243,6 +302,12 @@ function renderQuiz(){
       if(t)add(result,el("div","source","資料來源："+t));
     }
     add(card,result);
+    if(!rec.correct){
+      const wrongLink=el("div","wrong-link");
+      add(wrongLink,el("span","",state.demo?"示範錯題已加入本次錯題本":"此題已自動收錄至錯題本"),
+        button("開啟錯題本 →","ghost-button",openWrongBook));
+      add(card,wrongLink);
+    }
   }
   add(page,card);
   const actions=el("div","quiz-actions");
@@ -272,8 +337,87 @@ function renderSummary(){
     button("再看一遍","primary",()=>{state.index=0;state.selected=null;state.view="quiz";render();window.scrollTo(0,0);}));
   add(box,buttons);add(page,box);setPage(page);
 }
+function renderWrongBook(){
+  const page=el("div");
+  add(page,breadcrumbs([{text:"全部專科",onClick:goHome},{text:"錯題本"}]));
+  add(page,hero("MY MISTAKES","錯題本","依科別整理錯題，在每題下方直接記下易錯觀念或補充重點；筆記自動儲存在此瀏覽器。"));
+  const items=allWrongItems();
+  const index=el("div","wrongbook-index");
+  function categoryButton(label,key,num){
+    const active=state.wrongFilter===key;
+    const b=button(label+" "+num,"index-button"+(active?" active":""),()=>{
+      state.wrongFilter=key;render();window.scrollTo(0,0);
+    });
+    b.setAttribute("aria-pressed",String(active));
+    return b;
+  }
+  add(index,categoryButton("全部科別","all",items.length));
+  SUBJECTS.forEach(sub=>{
+    const n=items.filter(x=>x.specialty===sub.id).length;
+    if(n) add(index,categoryButton(sub.label,sub.id,n));
+  });
+  if(items.length)add(page,index);
+  const visible=items.filter(item=>state.wrongFilter==="all"||item.specialty===state.wrongFilter);
+  if(!items.length){
+    const empty=el("div","empty-state");
+    add(empty,el("div","empty-icon","▤"),
+      el("h2","","目前沒有錯題"),
+      el("p","","完成練習後，答錯的題目會自動出現在這裡。現在可以先體驗錯題筆記的操作方式。"),
+      button("載入一題示範錯題","primary",sampleWrongBook));
+    add(page,empty);
+  } else {
+    const heading=el("div","section-top");
+    add(heading,el("h2","","錯題紀錄"),el("span","pill","共 "+visible.length+" 題"));
+    add(page,heading);
+    const list=el("div","wrong-list");
+    visible.forEach(item=>{
+      const subject=getSubject(item.specialty);
+      const card=el("article","wrong-card");
+      const meta=el("div","wrong-meta");
+      add(meta,el("span","pill",subject?subject.label:"其他"),
+        el("span","",item.demo?"操作示範 · 非真實國考":(item.year?item.year+" 年":"未標年份")+(item.session?" · 第 "+item.session+" 次":"")+(item.number?" · 第 "+item.number+" 題":"")));
+      add(card,meta,el("h3","wrong-stem",item.stem));
+      const result=el("p","wrong-answer",
+        "你的答案："+("ABCDE"[item.selected]||"未記錄")+"　/　正確答案："+("ABCDE"[item.answer]||"待核對"));
+      add(card,result);
+      const noteLabel=el("label","note-label","我的筆記");
+      const textarea=el("textarea","note-input");
+      textarea.id="note-"+item.id.replace(/[^A-Za-z0-9_-]/g,"-");
+      noteLabel.htmlFor=textarea.id;
+      textarea.rows=3;
+      textarea.placeholder="例如：診斷關鍵、容易混淆的選項、考前必背重點…";
+      textarea.value=item.note||"";
+      const saveStatus=el("div","note-status",item.demo?"操作示範 · 筆記不會永久保存":"輸入後自動儲存 · 僅此瀏覽器");
+      textarea.addEventListener("input",()=>{
+        saveStatus.textContent=saveWrongNote(item,textarea.value)
+          ? (item.demo?"示範筆記已更新 · 關閉頁面後不保留":"已自動儲存")
+          : "儲存失敗：瀏覽器空間不足或儲存遭封鎖";
+      });
+      add(card,noteLabel,textarea,saveStatus);
+      const detail=el("details","wrong-details");
+      const summary=el("summary","","查看完整題目與詳解");
+      add(detail,summary,el("p","detail-stem",item.stem));
+      (item.options||[]).forEach((option,i)=>{
+        const mark=i===item.answer?"correct":i===item.selected?"wrong":"";
+        add(detail,el("p","detail-option "+mark,"ABCDE"[i]+". "+option));
+      });
+      if(item.explanation)add(detail,el("div","detail-explanation","詳解："+item.explanation));
+      if(item.source){
+        const source=typeof item.source==="string"?item.source:[item.source.file,item.source.page?"第 "+item.source.page+" 頁":null].filter(Boolean).join(" · ");
+        if(source)add(detail,el("p","source","資料來源："+source));
+      }
+      add(card,detail);
+      add(list,card);
+    });
+    add(page,list);
+  }
+  const note=el("p","local-warning","注意：此版本的錯題與筆記只儲存在目前瀏覽器。清除網站資料、無痕模式結束，或更換網址／裝置，可能無法保留或讀取原紀錄。");
+  add(page,note);
+  setPage(page);
+}
 function render(){
   if(state.view==="home")renderHome();
+  else if(state.view==="wrongbook")renderWrongBook();
   else if(state.view==="years")renderYears();
   else if(state.view==="empty")renderEmpty();
   else if(state.view==="quiz")renderQuiz();
