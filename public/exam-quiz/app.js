@@ -103,7 +103,7 @@ function renderHome(){
     const b=button(item[1],state.scope===item[0]?"active":"",()=>{state.scope=item[0];render();});
     b.setAttribute("aria-pressed",String(state.scope===item[0]));add(switcher,b);
   });
-  add(section,switcher,page);
+  add(section,switcher);add(page,section);
   const grid=el("div","grid");
   SUBJECTS.filter(s=>state.scope==="all"||s.group==="pgy").forEach(s=>{
     const b=el("button","subject-card");
